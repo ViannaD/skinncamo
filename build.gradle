@@ -1,9 +1,23 @@
+buildscript {
+    repositories {
+        // Repositório do MixinGradle (não publicado no Gradle Plugin Portal,
+        // por isso precisa ser aplicado do jeito "antigo" via buildscript+apply,
+        // mesmo coexistindo com o bloco plugins{} novo usado pelo ForgeGradle)
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
 plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
+
+apply plugin: 'org.spongepowered.mixin'
 
 version = '1.0.0'
 group = 'com.skincamo'
@@ -59,8 +73,8 @@ repositories {
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.2.0'
 
-    // Mixin já vem embutido no Forge/FML 1.20.1 (não precisa de dependência extra),
-    // mas deixamos explícito o annotation processor para gerar o refmap correto.
+    // O annotation processor do Mixin gera o refmap correto a partir do
+    // bloco mixin{} (configurado abaixo, via plugin org.spongepowered.mixin).
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 }
 
