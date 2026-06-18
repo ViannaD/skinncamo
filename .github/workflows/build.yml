@@ -1,0 +1,46 @@
+name: Build
+
+# Este workflow instala o Gradle diretamente na máquina do GitHub Actions
+# (via gradle/actions/setup-gradle) e roda "gradle build" — por isso NÃO
+# depende de gradle/wrapper/gradle-wrapper.jar estar versionado no repo.
+# Isso existe porque o jar do wrapper é um binário que não pôde ser gerado
+# no ambiente onde este projeto foi originalmente montado (sem internet).
+#
+# Para build local (./gradlew), você ainda precisa gerar esse jar uma vez —
+# veja gradle/wrapper/LEIA-ME_gradle-wrapper-jar.txt.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.1.1'
+
+      - name: Build
+        run: gradle build --no-daemon
+
+      - name: Guardar o .jar gerado
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: skincamo-jar
+          path: build/libs/*.jar
