@@ -63,7 +63,9 @@ minecraft {
     }
 }
 
-sourceSets.main.resources { srcDir 'src/main/resources' }
+// "src/main/resources" já é o diretório padrão do Gradle para recursos —
+// não é preciso (e não deve) ser declarado de novo aqui. Declará-lo de novo
+// foi o que causava "Entry ... is a duplicate" no processResources.
 
 repositories {
     mavenCentral()
