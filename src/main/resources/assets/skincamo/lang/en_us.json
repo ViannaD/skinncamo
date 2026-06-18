@@ -1,0 +1,9 @@
+{
+  "key.categories.skincamo": "Skin Camo",
+  "key.skincamo.open_painter": "Open Skin Painter",
+  "key.skincamo.quick_eyedropper": "Quick Eyedropper (apply to whole skin)",
+
+  "itemGroup.skincamo": "Skin Camo",
+
+  "skincamo.message.color_captured": "Color captured"
+}

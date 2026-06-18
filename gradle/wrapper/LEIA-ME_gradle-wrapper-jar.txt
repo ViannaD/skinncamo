@@ -1,0 +1,28 @@
+Falta apenas 1 arquivo binário aqui: gradle-wrapper.jar
+=========================================================
+
+Este projeto foi montado em um ambiente sem acesso à internet, então não foi
+possível baixar o gradle-wrapper.jar oficial (é um .jar binário, não dá pra
+"escrever" à mão com segurança). Todo o resto do wrapper (gradlew, gradlew.bat,
+gradle-wrapper.properties) já está pronto e correto.
+
+Para resolver, escolha UMA destas opções (rápidas, 1 vez só):
+
+OPÇÃO A — se você já tem o Gradle instalado (ex.: via SDKMAN, choco, brew):
+    cd skincamo
+    gradle wrapper --gradle-version 8.1.1
+Isso gera o gradle-wrapper.jar correto dentro desta mesma pasta, sem alterar
+os outros arquivos. Depois disso, ./gradlew (ou gradlew.bat) já funciona.
+
+OPÇÃO B — sem Gradle instalado:
+    1. Baixe o MDK oficial do Forge 1.20.1-47.2.0:
+       https://files.minecraftforge.net/net/minecraftforge/forge/index_1.20.1.html
+    2. Extraia o zip e copie só o arquivo:
+       gradle/wrapper/gradle-wrapper.jar
+       para esta mesma pasta (gradle/wrapper/) deste projeto.
+    3. Rode ./gradlew runClient normalmente.
+
+Depois de gerar/copiar o arquivo, pode (e deve) apagar este aviso e dar
+"git add gradle/wrapper/gradle-wrapper.jar" antes do commit/push pro GitHub —
+esse arquivo é seguro e normal de versionar (é assim que todo projeto Gradle
+faz).
