@@ -29,7 +29,7 @@ public class SkinCamoMod {
     public SkinCamoMod() {
         IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-        CapabilityHandler.register(modBus);
+        CapabilityHandler.register();
         NetworkHandler.register();
 
         MinecraftForge.EVENT_BUS.register(ServerEvents.class);

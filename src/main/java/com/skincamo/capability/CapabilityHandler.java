@@ -3,12 +3,12 @@ package com.skincamo.capability;
 import com.skincamo.SkinCamoMod;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityManager;
 import net.minecraftforge.common.capabilities.CapabilityToken;
 import net.minecraftforge.common.util.LazyOptional;
 import net.minecraftforge.event.AttachCapabilitiesEvent;
-import net.minecraftforge.eventbus.api.IEventBus;
 
 public class CapabilityHandler {
 
@@ -17,8 +17,16 @@ public class CapabilityHandler {
 
     public static final ResourceLocation IDENTIFIER = new ResourceLocation(SkinCamoMod.MODID, "skin_paint");
 
-    public static void register(IEventBus modBus) {
-        modBus.register(new Listener());
+    /**
+     * AttachCapabilitiesEvent é disparado no bus de eventos do Forge (jogo),
+     * não no bus de eventos do mod (setup) — por isso o registro é feito em
+     * MinecraftForge.EVENT_BUS, e não no modBus recebido pelo construtor do
+     * mod. Registrar no bus errado faz o Forge recusar carregar o mod com
+     * "has @SubscribeEvent annotation, but takes an argument that is not a
+     * subtype of ... IModBusEvent".
+     */
+    public static void register() {
+        MinecraftForge.EVENT_BUS.register(new Listener());
     }
 
     public static LazyOptional<SkinPaintData> get(Player player) {
