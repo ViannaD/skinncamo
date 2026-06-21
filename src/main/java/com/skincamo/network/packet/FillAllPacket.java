@@ -37,7 +37,7 @@ public class FillAllPacket {
 
             NetworkHandler.CHANNEL.send(
                     PacketDistributor.ALL.noArg(),
-                    SyncSkinDataPacket.of(player.getUUID(), data)
+                    SkinDeltaPacket.allFill(player.getUUID(), msg.rgb)
             );
         });
         ctx.setPacketHandled(true);

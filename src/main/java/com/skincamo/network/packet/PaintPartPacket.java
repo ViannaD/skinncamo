@@ -38,13 +38,12 @@ public class PaintPartPacket {
 
             // Servidor é a fonte da verdade: valida e atualiza a capability.
             SkinPaintData data = CapabilityHandler.getOrDefault(player);
-            data.setColor(msg.part, msg.rgb);
+            data.setPartColor(msg.part, msg.rgb);
 
-            // Re-transmite para TODOS (inclusive quem enviou, para manter consistência),
-            // usando o estado completo do jogador (pequeno: 6 ints).
+            // Re-transmite (pequeno: UUID + enum + cor) para TODOS, inclusive quem enviou.
             NetworkHandler.CHANNEL.send(
                     PacketDistributor.ALL.noArg(),
-                    SyncSkinDataPacket.of(player.getUUID(), data)
+                    SkinDeltaPacket.partFill(player.getUUID(), msg.part, msg.rgb)
             );
         });
         ctx.setPacketHandled(true);

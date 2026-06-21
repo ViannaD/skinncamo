@@ -1,5 +1,6 @@
 package com.skincamo.client;
 
+import com.skincamo.client.brush.BrushMode;
 import com.skincamo.client.eyedropper.MimicryHandler;
 import com.skincamo.client.gui.PaintActions;
 import com.skincamo.client.gui.SkinPainterScreen;
@@ -38,7 +39,14 @@ public final class ClientEvents {
             }
         }
 
+        while (KeyBindings.TOGGLE_BRUSH_MODE.consumeClick()) {
+            if (mc.player != null && mc.screen == null) {
+                BrushMode.toggle();
+            }
+        }
+
         InkAnimationManager.tick();
         MimicryHandler.tick(mc);
+        BrushMode.tick(mc);
     }
 }

@@ -27,4 +27,13 @@ public final class KeyBindings {
             InputConstants.KEY_G,
             CATEGORY
     );
+
+    /** Liga/desliga o Modo Pincel 3D (pintar mirando no próprio corpo). Padrão: B. */
+    public static final KeyMapping TOGGLE_BRUSH_MODE = new KeyMapping(
+            "key.skincamo.toggle_brush_mode",
+            KeyConflictContext.IN_GAME,
+            InputConstants.Type.KEYSYM,
+            InputConstants.KEY_B,
+            CATEGORY
+    );
 }

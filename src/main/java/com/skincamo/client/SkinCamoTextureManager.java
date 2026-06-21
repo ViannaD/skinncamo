@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Núcleo do "Sistema de Renderização" pedido na spec:
  *  - Uma DynamicTexture (com NativeImage) por jogador, criada uma única vez.
- *  - Atualizações pintam SOMENTE a região (retângulos UV) da parte alterada
+ *  - Atualizações pintam SOMENTE a região (retângulos UV) ou o pixel alterado
  *    e fazem upload incremental (texture.upload() apenas reenvia o buffer já
  *    modificado para a GPU; não recriamos a NativeImage do zero).
  *  - A troca de "qual textura o jogo usa para esse jogador" é feita pelo
@@ -28,7 +28,9 @@ public final class SkinCamoTextureManager {
 
     private static final Map<UUID, DynamicTexture> TEXTURES = new ConcurrentHashMap<>();
     private static final Map<UUID, ResourceLocation> LOCATIONS = new ConcurrentHashMap<>();
-    private static final Map<UUID, Map<BodyPart, Integer>> LAST_COLORS = new ConcurrentHashMap<>();
+    private static final Map<UUID, int[]> PENDING_FULL_IMAGE = new ConcurrentHashMap<>();
+    /** Cache só para a GUI mostrar "a última cor sólida usada" - não é a fonte da verdade. */
+    private static final Map<UUID, Map<BodyPart, Integer>> LAST_PART_COLORS = new ConcurrentHashMap<>();
 
     /** Chamado pelo mixin de renderização para todo jogador visível. Lazy: cria só na primeira vez. */
     public static ResourceLocation getOrCreateLocation(AbstractClientPlayer player) {
@@ -45,12 +47,12 @@ public final class SkinCamoTextureManager {
         TEXTURES.put(id, texture);
         LOCATIONS.put(id, loc);
 
-        // Se já recebemos dados de pintura desse jogador antes do model ser renderizado
-        // (ex.: chegou um SyncSkinDataPacket antes do jogador entrar no campo de visão),
-        // aplicamos agora.
-        Map<BodyPart, Integer> pending = LAST_COLORS.get(id);
+        // Se já recebemos a imagem completa desse jogador antes do model ser
+        // renderizado por aqui (ex.: chegou o FullSkinSyncPacket antes do
+        // jogador entrar no campo de visão), aplicamos agora.
+        int[] pending = PENDING_FULL_IMAGE.remove(id);
         if (pending != null) {
-            applyColorsImmediate(id, pending);
+            writeFullImage(texture, pending);
         }
         return loc;
     }
@@ -59,23 +61,35 @@ public final class SkinCamoTextureManager {
         return TEXTURES.containsKey(id);
     }
 
-    /** Aplica um conjunto de cores instantaneamente (sem animação), usado na sincronização de rede. */
-    public static void applyColorsImmediate(UUID id, Map<BodyPart, Integer> colors) {
-        LAST_COLORS.put(id, new EnumMap<>(colors));
+    /** Sincronização completa (login): substitui os 64x64 pixels de uma vez, 1 upload só. */
+    public static void applyFullImage(UUID id, int[] pixels) {
         DynamicTexture texture = TEXTURES.get(id);
-        if (texture == null || texture.getPixels() == null) return;
-
-        NativeImage image = texture.getPixels();
-        for (Map.Entry<BodyPart, Integer> entry : colors.entrySet()) {
-            SkinPixelMap.fillPart(image, entry.getKey(), entry.getValue());
+        if (texture == null || texture.getPixels() == null) {
+            // Textura ainda não existe (jogador fora do campo de visão) - guarda
+            // para aplicar no momento em que getOrCreateLocation() for chamado.
+            PENDING_FULL_IMAGE.put(id, pixels);
+            return;
         }
+        writeFullImage(texture, pixels);
+    }
+
+    private static void writeFullImage(DynamicTexture texture, int[] pixels) {
+        NativeImage image = texture.getPixels();
+        if (image == null) return;
+        SkinPixelMap.writeFullImage(image, pixels, SkinTextureFactory.SIZE, SkinTextureFactory.SIZE);
         texture.upload();
     }
 
-    /** Aplica só UMA parte (mais barato: usado pela pintura normal, atualiza só a região modificada). */
+    /** Preenche toda a skin (todas as partes) com uma cor sólida - "Preencher Tudo". */
+    public static void applyAllColor(UUID id, int rgb) {
+        for (BodyPart part : BodyPart.VALUES) {
+            applyPartColor(id, part, rgb);
+        }
+    }
+
+    /** Preenche só UMA parte (mais barato: usado pela pintura normal, atualiza só a região modificada). */
     public static void applyPartColor(UUID id, BodyPart part, int rgb) {
-        Map<BodyPart, Integer> cache = LAST_COLORS.computeIfAbsent(id, k -> new EnumMap<>(BodyPart.class));
-        cache.put(part, rgb);
+        LAST_PART_COLORS.computeIfAbsent(id, k -> new EnumMap<>(BodyPart.class)).put(part, rgb);
 
         DynamicTexture texture = TEXTURES.get(id);
         if (texture == null || texture.getPixels() == null) return;
@@ -84,8 +98,18 @@ public final class SkinCamoTextureManager {
         texture.upload();
     }
 
+    /** Pintura livre, pixel a pixel - usada pelo Modo Pincel 3D. */
+    public static void setPixel(UUID id, int x, int y, int rgb) {
+        DynamicTexture texture = TEXTURES.get(id);
+        if (texture == null || texture.getPixels() == null) return;
+
+        SkinPixelMap.writePixel(texture.getPixels(), x, y, rgb);
+        texture.upload();
+    }
+
+    /** Hint de UI (não é fonte da verdade): última cor sólida aplicada numa parte, se houver. */
     public static Integer getLastColor(UUID id, BodyPart part) {
-        Map<BodyPart, Integer> cache = LAST_COLORS.get(id);
+        Map<BodyPart, Integer> cache = LAST_PART_COLORS.get(id);
         return cache == null ? null : cache.get(part);
     }
 

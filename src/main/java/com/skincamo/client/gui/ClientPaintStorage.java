@@ -32,6 +32,8 @@ public final class ClientPaintStorage {
         public List<Integer> history = new ArrayList<>();
         public List<Integer> favorites = new ArrayList<>();
         public int opacity = 255; // reservado para expansões futuras (transparência na skin)
+        public int currentColor = 0xFFFFFF; // última cor selecionada na paleta - usada pelo Modo Pincel 3D
+        public int brushSize = 1; // 1..3, usado pelo Modo Pincel 3D
     }
 
     private static Model cached;
@@ -97,6 +99,17 @@ public final class ClientPaintStorage {
 
     public static void setOpacity(int opacity) {
         get().opacity = opacity;
+        save();
+    }
+
+    /** Chamado pela paleta sempre que a cor selecionada muda - é o que o Modo Pincel 3D usa. */
+    public static void setCurrentColor(int rgb) {
+        get().currentColor = rgb & 0xFFFFFF;
+        save();
+    }
+
+    public static void setBrushSize(int size) {
+        get().brushSize = Math.max(1, Math.min(3, size));
         save();
     }
 }

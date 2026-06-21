@@ -1,9 +1,7 @@
 package com.skincamo.capability;
 
 import net.minecraft.nbt.CompoundTag;
-
-import java.util.EnumMap;
-import java.util.Map;
+import net.minecraft.nbt.IntArrayTag;
 
 /**
  * Estado "fonte da verdade" da pintura de um jogador.
@@ -11,50 +9,75 @@ import java.util.Map;
  * com os dados do jogador (o Forge serializa capabilities automaticamente
  * dentro do NBT do jogador, então isso já cobre o requisito de persistência
  * entre sessões sem precisar de um arquivo separado).
+ *
+ * Guardamos a skin como um BITMAP completo 64x64 (não mais "uma cor por
+ * parte"), para suportar tanto o preenchimento de parte/skin inteira (botões
+ * da GUI) quanto a pintura livre pixel a pixel (Modo Pincel 3D, mirando no
+ * próprio corpo em terceira pessoa).
  */
 public class SkinPaintData {
 
     public static final int DEFAULT_COLOR = 0xFFFFFF; // branco, RGB sem alpha
+    public static final int SIZE = 64;
 
-    private final Map<BodyPart, Integer> colors = new EnumMap<>(BodyPart.class);
+    private final int[] pixels = new int[SIZE * SIZE];
 
     public SkinPaintData() {
-        for (BodyPart part : BodyPart.VALUES) {
-            colors.put(part, DEFAULT_COLOR);
+        java.util.Arrays.fill(pixels, DEFAULT_COLOR);
+    }
+
+    public int getPixel(int x, int y) {
+        if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return DEFAULT_COLOR;
+        return pixels[y * SIZE + x];
+    }
+
+    public void setPixel(int x, int y, int rgb) {
+        if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return;
+        pixels[y * SIZE + x] = rgb & 0xFFFFFF;
+    }
+
+    /** Preenche todos os retângulos (6 faces) de uma parte do corpo com uma cor sólida. */
+    public void setPartColor(BodyPart part, int rgb) {
+        for (int[] rect : SkinUvLayout.BASE_LAYER.get(part)) {
+            fillRect(rect, rgb);
         }
     }
 
-    public int getColor(BodyPart part) {
-        return colors.getOrDefault(part, DEFAULT_COLOR);
-    }
-
-    public void setColor(BodyPart part, int rgb) {
-        colors.put(part, rgb & 0xFFFFFF);
-    }
-
+    /** Preenche a skin inteira (todas as partes) com uma única cor sólida. */
     public void fillAll(int rgb) {
         for (BodyPart part : BodyPart.VALUES) {
-            colors.put(part, rgb & 0xFFFFFF);
+            setPartColor(part, rgb);
         }
     }
 
-    public Map<BodyPart, Integer> asMap() {
-        return colors;
+    /** Cópia direta do buffer (64x64 = 4096 ints, 0xRRGGBB cada). Usado pela sincronização completa. */
+    public int[] snapshot() {
+        return pixels.clone();
+    }
+
+    public void loadSnapshot(int[] data) {
+        if (data == null || data.length != pixels.length) return;
+        System.arraycopy(data, 0, pixels, 0, pixels.length);
+    }
+
+    private void fillRect(int[] rect, int rgb) {
+        int color = rgb & 0xFFFFFF;
+        for (int y = rect[1]; y < rect[1] + rect[3]; y++) {
+            for (int x = rect[0]; x < rect[0] + rect[2]; x++) {
+                setPixel(x, y, color);
+            }
+        }
     }
 
     public CompoundTag serializeNBT() {
         CompoundTag tag = new CompoundTag();
-        for (BodyPart part : BodyPart.VALUES) {
-            tag.putInt(part.name(), getColor(part));
-        }
+        tag.put("pixels", new IntArrayTag(pixels));
         return tag;
     }
 
     public void deserializeNBT(CompoundTag tag) {
-        for (BodyPart part : BodyPart.VALUES) {
-            if (tag.contains(part.name())) {
-                colors.put(part, tag.getInt(part.name()));
-            }
+        if (tag.contains("pixels")) {
+            loadSnapshot(tag.getIntArray("pixels"));
         }
     }
 }

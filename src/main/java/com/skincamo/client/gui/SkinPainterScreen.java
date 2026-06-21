@@ -3,6 +3,7 @@ package com.skincamo.client.gui;
 import com.skincamo.capability.BodyPart;
 import com.skincamo.client.Eyedropper;
 import com.skincamo.client.SkinCamoTextureManager;
+import com.skincamo.client.brush.BrushMode;
 import com.skincamo.client.eyedropper.ColorSampler;
 import com.skincamo.client.eyedropper.MimicryHandler;
 import net.minecraft.client.Minecraft;
@@ -45,7 +46,7 @@ public class SkinPainterScreen extends Screen {
     // ---- layout do painel ----
     private int panelX, panelY;
     private final int panelW = 384;
-    private final int panelH = 304;
+    private final int panelH = 360;
 
     // ---- estado de cor atual ----
     private int currentRgb = 0xFFFFFF;
@@ -67,6 +68,8 @@ public class SkinPainterScreen extends Screen {
     private EditBox hexField;
     private Button mimicryButton;
     private Button eyedropperButton;
+    private Button brushModeButton;
+    private Button brushSizeButton;
 
     private final List<PartEntry> partEntries = new ArrayList<>();
 
@@ -99,13 +102,14 @@ public class SkinPainterScreen extends Screen {
             Integer last = mc.player != null
                     ? SkinCamoTextureManager.getLastColor(mc.player.getUUID(), selectedPart)
                     : null;
-            currentRgb = last != null ? last : 0xFFFFFF;
+            currentRgb = last != null ? last : ClientPaintStorage.get().currentColor;
         }
         float[] hsv = ColorUtil.rgbToHsv(currentRgb);
         hue = hsv[0];
         sat = hsv[1];
         val = hsv[2];
         pendingOpacity = ClientPaintStorage.get().opacity;
+        BrushMode.setBrushSize(ClientPaintStorage.get().brushSize);
 
         // ---------- coluna esquerda: seletor de partes ----------
         int leftX = panelX + 16;
@@ -149,6 +153,16 @@ public class SkinPainterScreen extends Screen {
                         Component.literal("Aplicar na Parte"),
                         b -> PaintActions.paintPart(selectedPart, currentRgb))
                 .bounds(leftX, actionsY + actionGap * 4, partW, actionH).build());
+
+        brushModeButton = addRenderableWidget(Button.builder(
+                        Component.literal("Pincel 3D: OFF"),
+                        b -> onToggleBrushMode())
+                .bounds(leftX, actionsY + actionGap * 5, partW, actionH).build());
+
+        brushSizeButton = addRenderableWidget(Button.builder(
+                        Component.literal("Tamanho do Pincel: 1px"),
+                        b -> onCycleBrushSize())
+                .bounds(leftX, actionsY + actionGap * 6, partW, actionH).build());
 
         // ---------- coluna direita: seletor de cor ----------
         int rightX = panelX + 144;
@@ -229,6 +243,15 @@ public class SkinPainterScreen extends Screen {
         MimicryHandler.toggle();
     }
 
+    private void onToggleBrushMode() {
+        BrushMode.toggle();
+    }
+
+    private void onCycleBrushSize() {
+        BrushMode.cycleBrushSize();
+        ClientPaintStorage.setBrushSize(BrushMode.getBrushSize());
+    }
+
     private void onHexChanged(String text) {
         if (suppressHexCallback) return;
         Integer parsed = ColorUtil.parseHex(text);
@@ -243,6 +266,7 @@ public class SkinPainterScreen extends Screen {
         hue = hsv[0];
         sat = hsv[1];
         val = hsv[2];
+        ClientPaintStorage.setCurrentColor(currentRgb);
         if (updateHexText && hexField != null) {
             suppressHexCallback = true;
             hexField.setValue(ColorUtil.toHex(currentRgb));
@@ -335,6 +359,9 @@ public class SkinPainterScreen extends Screen {
         if (draggingOpacity) {
             draggingOpacity = false;
             ClientPaintStorage.setOpacity(pendingOpacity);
+        }
+        if (draggingSV || draggingHue) {
+            ClientPaintStorage.setCurrentColor(currentRgb);
         }
         draggingSV = false;
         draggingHue = false;
@@ -459,6 +486,8 @@ public class SkinPainterScreen extends Screen {
         drawSwatchRow(g, ClientPaintStorage.get().favorites, favoriteRowX, favoriteRowY, FAVORITE_SLOTS);
 
         g.drawCenteredString(this.font, "ESC ou P para fechar - clique direito remove favorito",
+                panelX + panelW / 2, panelY + panelH - 24, COL_TEXT_MUTED);
+        g.drawCenteredString(this.font, "Pincel 3D (tecla B): feche a paleta e mire no seu corpo em 3ª pessoa",
                 panelX + panelW / 2, panelY + panelH - 12, COL_TEXT_MUTED);
 
         // atualiza textos dinâmicos dos botões antes de desenhá-los
@@ -469,6 +498,14 @@ public class SkinPainterScreen extends Screen {
         if (eyedropperButton != null) {
             eyedropperButton.setMessage(Component.literal(
                     Eyedropper.isArmed() ? "Conta-gotas: ARMADO" : "Conta-gotas"));
+        }
+        if (brushModeButton != null) {
+            brushModeButton.setMessage(Component.literal(
+                    BrushMode.isActive() ? "Pincel 3D: ON" : "Pincel 3D: OFF"));
+        }
+        if (brushSizeButton != null) {
+            brushSizeButton.setMessage(Component.literal(
+                    "Tamanho do Pincel: " + BrushMode.getBrushSize() + "px"));
         }
 
         // desenha os widgets reais (botões, campo de hex) por cima do painel

@@ -136,7 +136,52 @@ found" ou erro de remap do Mixin):
 
 ---
 
-## 4. O que está totalmente implementado vs. simplificado
+## 4. ⚠️ Modo Pincel 3D — pintura mirando no próprio corpo (segundo ponto de risco)
+
+Arquivos: `client/brush/PlayerBodyGeometry.java`, `client/brush/BodyRaycaster.java`, `client/brush/BrushMode.java`.
+
+Esse é o recurso mais ambicioso do mod: tecla **B** liga um modo onde você
+mira (com a câmera/crosshair normal, em terceira pessoa) direto no seu
+próprio corpo e pinta pixel a pixel, em vez de só preencher uma parte com
+cor sólida. O Minecraft **nunca** faz esse tipo de teste (mirar em si mesmo)
+em nenhum lugar do jogo — é matemática 100% escrita do zero neste mod:
+
+1. Reconstrói a posição/orientação do seu corpo no mundo a partir da
+   posição dos pés + rotação do corpo (não da câmera).
+2. Testa o raio da mira contra uma versão simplificada das 6 caixas do seu
+   modelo (cabeça, tronco, braços, pernas), descobrindo não só *se* bateu,
+   mas em qual face e em que ponto exato.
+3. Converte esse ponto num pixel da textura 64x64, usando as mesmas tabelas
+   de UV que o resto do mod já usa.
+
+**Simplificações deliberadas** (documentadas em `PlayerBodyGeometry.java`):
+não reproduz o balanço de braços/pernas ao andar (assume pose parado em
+pé), e a cabeça gira junto com o corpo (não reage a olhar pra cima/baixo
+sem virar o corpo todo). Pintar parado dá o resultado mais preciso.
+
+**Se a pintura aparecer no lugar errado ao testar**, o arquivo
+`PlayerBodyGeometry.java` tem 2 constantes isoladas no topo, comentadas
+exatamente para isso:
+- `ROOT_HEIGHT_ABOVE_FEET`: se o ponto pintado aparecer sistematicamente
+  mais alto ou mais baixo do que onde você mirou, ajuste este valor.
+- `RIGHT_AXIS_SIGN`: se braço/perna esquerdo e direito saírem trocados
+  (mirar no braço direito pinta o esquerdo), troque +1.0 por -1.0.
+
+Para ajudar a depurar isso visualmente, toda vez que um pixel é pintado o
+mod solta uma partícula (`END_ROD`) exatamente no ponto 3D calculado — se a
+partícula aparecer claramente fora do seu corpo (ex.: flutuando no ar ao
+lado), é sinal de que uma dessas duas constantes precisa de ajuste.
+
+Pra impedir que o clique também quebre um bloco de verdade, os eventos
+`LeftClickBlock`/`LeftClickEmpty` são cancelados enquanto o modo está
+ativo — essa parte usa API estável (mesma já usada pelo conta-gotas). A
+detecção de "botão esquerdo pressionado" lê o estado direto do GLFW (em
+vez da API de input do Forge, que mudou de formato entre versões recentes),
+pra reduzir mais um ponto de risco.
+
+---
+
+## 5. O que está totalmente implementado vs. simplificado
 
 | Recurso pedido | Status |
 |---|---|
@@ -158,7 +203,9 @@ found" ou erro de remap do Mixin):
 | Tecla rápida G (conta-gotas instantâneo + aplica tudo) | ✅ Completo |
 | Auto-Camuflagem (uma cor, baseada nos blocos próximos) | ✅ Completo |
 | Modo Mimetismo (contínuo, ao se mover) | ✅ Completo, com throttling de rede/CPU |
-| Animação de "tinta se espalhando" | ✅ Completo (revelação progressiva client-side, ~0,3s) |
+| Animação de "tinta se espalhando" | ✅ Completo (revelação progressiva client-side, ~0,3s) — só no preenchimento sólido, não na pintura livre pixel a pixel |
+| Pintura livre, pixel a pixel | ✅ Completo (buffer 64x64 real no servidor, não mais "uma cor por parte") |
+| Pintar mirando no próprio corpo em 3ª pessoa (Modo Pincel, tecla B) | ⚠️ **Implementado, mas é o ponto mais experimental do mod** — depende de matemática de raycast 3D escrita do zero (ver seção 4). Funciona melhor parado em pé; cabeça/braços/pernas em movimento podem ficar levemente desalinhados. |
 | Persistência entre sessões | ✅ Completo (capability NBT + JSON de preferências) |
 | Compatível com OptiFine/shaders | ❓ **Não testável aqui.** A textura é registrada
   normalmente no `TextureManager` do Minecraft, então deve se comportar como
@@ -177,7 +224,7 @@ ponto de expansão futura no próprio código.
 
 ---
 
-## 5. Estrutura de arquivos
+## 6. Estrutura de arquivos
 
 ```
 src/main/java/com/skincamo/
@@ -188,7 +235,8 @@ src/main/java/com/skincamo/
 ├── server/                           (sincronização ao logar)
 ├── client/                           (renderização, teclas, GUI)
 │   ├── gui/                          (tela de pintura + persistência de UI)
-│   └── eyedropper/                   (amostragem de cor + modo mimetismo)
+│   ├── eyedropper/                   (amostragem de cor + modo mimetismo)
+│   └── brush/                        (Modo Pincel 3D: geometria + raycast)
 └── mixin/                            (troca da textura renderizada)
 
 src/main/resources/
@@ -200,7 +248,7 @@ src/main/resources/
 
 ---
 
-## 6. Testando rapidamente
+## 7. Testando rapidamente
 
 1. `./gradlew runClient` duas vezes (ou uma vez + `runServer`) para simular
    multiplayer.
@@ -213,10 +261,15 @@ src/main/resources/
    hora, com uma mensagem na actionbar mostrando o hex capturado.
 6. Teste **Auto-Camuflagem** parado perto de blocos variados, e depois ative
    **Mimetismo** e ande pelo mapa observando a skin reagir ao ambiente.
+7. Aperte **B** pra ligar o Modo Pincel 3D, fique parado em pé, olhe pra
+   baixo (em terceira pessoa) na direção do seu peito/pernas e clique e
+   arraste o botão esquerdo. Deve aparecer uma partícula branca exatamente
+   onde você está pintando — se ela aparecer claramente fora do corpo, veja
+   a seção 4 (são só 2 constantes pra ajustar).
 
 ---
 
-## 7. Publicando no GitHub
+## 8. Publicando no GitHub
 
 O projeto já está com `git init` feito e o primeiro commit pronto (veja o
 histórico com `git log`). Antes de subir, vale personalizar 3 coisas que
